@@ -1,8 +1,13 @@
 #!/usr/bin/python3
 
-"""Script for counting RFC contributions.
+"""Script for attributing RFC and Datatracker activities
+
+https://github.com/paulwouters/ietf-info
+
+Original rewrite by Simo Soini of Martin Duke's code.
 
 Copyright 2023, Simo Soini, Foobar Oy <caps@foobar.fi>
+Copyright 2023, Paul Wouters, Aiven <paul.wouters@aiven.io>
 
 License: GPLv2+
 """
