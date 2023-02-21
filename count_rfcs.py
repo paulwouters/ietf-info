@@ -20,14 +20,16 @@ from typing import Dict
 # General use global variables
 RFC_EDITOR_URL = 'https://www.rfc-editor.org'
 DATA_TRACKER_URL = 'https://datatracker.ietf.org'
-OPTIONS = 'hn:'
-LONG_OPTIONS = ['help', 'name']
+OPTIONS = 'hvdn:'
+LONG_OPTIONS = ['help', 'verbose', 'debug', 'name']
 USAGE = f"""
 Tool for counting RFC contributions by name.
 
 Usage: ./count_rfcs.py -n "Firstname Lastname"
 
 {"-h, --help:":<20}Print this help message.
+{"-d, --debug:":<20}Print debug info.
+{"-v, --debug:":<20}Print verbose RFC numbers.
 {"-n, --name:":<20}REQUIRED! "Firstname Lastname"
 """
 
@@ -45,6 +47,8 @@ FIRST_YEAR = 2022
 LAST_YEAR = dt.date.today().year
 FIRST_RFC = 7000
 LAST_RFC = 20_000
+DEBUG = False
+VERBOSE = False
 
 # Global variables for collecting the results
 AUTHOR: Dict[int, str] = {}
@@ -52,6 +56,7 @@ RESPONSIBLE_AD: Dict[int, str] = {}
 SHEPHERD: Dict[int, str] = {}
 CONTRIBUTOR: Dict[int, str] = {}
 BALLOTED: Dict[int, str] = {}
+DISCUSS: Dict[int, str] = {}
 FAILED_CHECK: Dict[int, str] = {}
 
 
@@ -105,6 +110,12 @@ def handle_arguments(arglist) -> None:
         elif arg in ('-i', '--include'):
             for include in val.split(','):
                 INCLUDE.append(include.upper())
+        elif arg in ('-d', '--debug'):
+            global DEBUG
+            DEBUG = True
+        elif arg in ('-v', '--verbose'):
+            global VERBOSE
+            VERBOSE = True
     if not NAME:
         sys.exit()
 
@@ -115,15 +126,20 @@ def print_result() -> None:
     print(f'Search for name {NAME}:')
     print()
     print(f'Authored: {len(AUTHOR)}')
-    pprint.pprint(AUTHOR)
+    if VERBOSE:
+        pprint.pprint(AUTHOR)
     print(f'Shepherded: {len(SHEPHERD)}')
-    pprint.pprint(SHEPHERD)
+    if VERBOSE:
+        pprint.pprint(SHEPHERD)
     print(f'Responsible AD: {len(RESPONSIBLE_AD)}')
-    pprint.pprint(RESPONSIBLE_AD)
+    if VERBOSE:
+        pprint.pprint(RESPONSIBLE_AD)
     print(f'Balloted: {len(BALLOTED)}')
-    pprint.pprint(BALLOTED)
+    if VERBOSE:
+        pprint.pprint(BALLOTED)
     print(f'Acknowledged: {len(CONTRIBUTOR)}')
-    pprint.pprint(CONTRIBUTOR)
+    if VERBOSE:
+        pprint.pprint(CONTRIBUTOR)
 
 
 async def http_get(url: str) -> requests.models.Response:
@@ -136,12 +152,12 @@ async def get_possible_rfcs() -> list:
     route = '/rfc-index2.html'
 
     try:
-        print(
-            f'Requesting data from {RFC_EDITOR_URL + route}... ',
-            end=''
-        )
+        if DEBUG:
+            print(
+                f'Requesting data from {RFC_EDITOR_URL + route}... ',
+                end=''
+            )
         response = await http_get(RFC_EDITOR_URL + route)
-        print('Done')
     except requests.exceptions.ConnectionError as error:
         print(f'Aborted due to the following error:\n{error}')
         sys.exit()
@@ -161,9 +177,9 @@ async def check_rfc(rfc: dict) -> None:
     """Check RFC for name match, and add hits to statistics."""
     route = f'/doc/rfc{rfc["number"]}/doc.json'
     try:
-        print(f'{rfc["number"]}: Getting rfc data... ', end='')
+        if DEBUG:
+            print(f'{rfc["number"]}: Getting rfc data... ', end='')
         response = await http_get(DATA_TRACKER_URL + route)
-        print('Done')
     except requests.exceptions.ConnectionError as error:
         print(f'check_rfc failed with {error}')
         return
@@ -171,21 +187,25 @@ async def check_rfc(rfc: dict) -> None:
     # print(datatracker_metadata['authors'])
     if NAME in datatracker_metadata['authors']:
         AUTHOR[rfc['number']] = rfc['title']
-        print(f'{rfc["number"]}: Authored')
+        if VERBOSE:
+            print(f'{rfc["number"]}: Authored')
     # print(datatracker_metadata['shepherd'])
     if (
             datatracker_metadata['shepherd']
             and NAME in datatracker_metadata['shepherd']
     ):
         SHEPHERD[rfc['number']] = rfc['title']
-        print(f'{rfc["number"]}Shepherded')
-    # print(datatracker_metadata['ad'])
+        if VERBOSE:
+            print(f'{rfc["number"]}Shepherded')
+    if DEBUG:
+        print(datatracker_metadata['ad'])
     if (
             datatracker_metadata['ad']
             and NAME in datatracker_metadata['ad']
     ):
         RESPONSIBLE_AD[rfc['number']] = rfc['title']
-        print(f'{rfc["number"]}: Responsible AD')
+        if VERBOSE:
+            print(f'{rfc["number"]}: Responsible AD')
     if 'ACKNOWLEDGMENTS' in INCLUDE:
         result = await check_acknowledgments(rfc)
     result = await check_ballot(rfc)
@@ -197,9 +217,9 @@ async def check_acknowledgments(rfc: dict) -> bool:
     """Check the RFC text for name as an acknowledgment."""
     route = f'/rfc/rfc{rfc["number"]}.txt'
     try:
-        print(f'{rfc["number"]}: Getting acknowledgment data... ', end='')
+        if DEBUG:
+            print(f'{rfc["number"]}: Getting acknowledgment data... ', end='')
         response = await http_get(RFC_EDITOR_URL + route)
-        print('Done')
     except requests.exceptions.ConnectionError as error:
         print(f'check_acknowledgments failed with {error}')
         return False
@@ -213,7 +233,8 @@ async def check_acknowledgments(rfc: dict) -> bool:
             print(error)
     if rfc_text and NAME in rfc_text:
         CONTRIBUTOR[rfc['number']] = rfc['title']
-        print(f'{rfc["number"]}: Contributed')
+        if VERBOSE:
+            print(f'{rfc["number"]}: Contributed')
         return True
     return False
 
@@ -222,9 +243,9 @@ async def check_ballot(rfc: dict) -> bool:
     """Check if the RFC is balloted."""
     route = f'/doc/rfc{rfc["number"]}/ballot/'
     try:
-        print(f'{rfc["number"]}: Getting ballot data... ', end='')
+        if DEBUG:
+            print(f'{rfc["number"]}: Getting ballot data... ', end='')
         response = await http_get(DATA_TRACKER_URL + route)
-        print('Done')
     except requests.exceptions.ConnectionError as error:
         print(f'check_ballot failed with {error}')
         return False
@@ -238,7 +259,8 @@ async def check_ballot(rfc: dict) -> bool:
             print(error)
     if NAME in rfc_text:
         BALLOTED[rfc['number']] = rfc['title']
-        print(f'{rfc["number"]}: Balloted')
+        if VERBOSE:
+            print(f'{rfc["number"]}: Balloted')
         return True
     return False
 
@@ -248,7 +270,8 @@ async def main() -> None:
     start = time.time()
     handle_arguments(sys.argv[1:])
     table = await get_possible_rfcs()
-    print('Started going through RFC:s left after filtering')
+    if DEBUG:
+        print('Started going through RFC:s left after filtering')
     await asyncio.gather(*[check_rfc(rfc) for rfc in table])
     print_result()
     print(f'finished in {time.time() - start}')
