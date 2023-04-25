@@ -134,18 +134,23 @@ def print_result() -> None:
     print(f'Authored: {len(AUTHOR)}')
     if VERBOSE:
         pprint.pprint(AUTHOR)
+        print()
     print(f'Shepherded: {len(SHEPHERD)}')
     if VERBOSE:
         pprint.pprint(SHEPHERD)
+        print()
     print(f'Responsible AD: {len(RESPONSIBLE_AD)}')
     if VERBOSE:
         pprint.pprint(RESPONSIBLE_AD)
+        print()
     print(f'Balloted: {len(BALLOTED)}')
     if VERBOSE:
         pprint.pprint(BALLOTED)
+        print()
     print(f'Discussed: {len(DISCUSS)}')
     if VERBOSE:
         pprint.pprint(DISCUSS)
+        print()
     print(f'Acknowledged: {len(CONTRIBUTOR)}')
     if VERBOSE:
         pprint.pprint(CONTRIBUTOR)
