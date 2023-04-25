@@ -11,14 +11,15 @@ Copyright 2023, Paul Wouters, Aiven <paul.wouters@aiven.io>
 
 License: GPLv2+
 """
-import sys
-import getopt
-import datetime as dt
-import time
-import requests
-import bs4
 import asyncio
+import bs4
+import sys
+import datetime as dt
+import getopt
 import pprint
+import re
+import requests
+import time
 from typing import Dict
 
 
@@ -133,15 +134,23 @@ def print_result() -> None:
     print(f'Authored: {len(AUTHOR)}')
     if VERBOSE:
         pprint.pprint(AUTHOR)
+        print()
     print(f'Shepherded: {len(SHEPHERD)}')
     if VERBOSE:
         pprint.pprint(SHEPHERD)
+        print()
     print(f'Responsible AD: {len(RESPONSIBLE_AD)}')
     if VERBOSE:
         pprint.pprint(RESPONSIBLE_AD)
+        print()
     print(f'Balloted: {len(BALLOTED)}')
     if VERBOSE:
         pprint.pprint(BALLOTED)
+        print()
+    print(f'Discussed: {len(DISCUSS)}')
+    if VERBOSE:
+        pprint.pprint(DISCUSS)
+        print()
     print(f'Acknowledged: {len(CONTRIBUTOR)}')
     if VERBOSE:
         pprint.pprint(CONTRIBUTOR)
@@ -264,6 +273,18 @@ async def check_ballot(rfc: dict) -> bool:
             print(error)
     if NAME in rfc_text:
         BALLOTED[rfc['number']] = rfc['title']
+        discuss_regex = re.compile(
+            NAME
+            + r'\s*</div>\s*<div class=\"flex-fill text-end\">\s*'
+            + r'<span class=\"text-muted small\">\(was Discuss\)'
+        )
+
+        if DEBUG:
+            print(f'{rfc["number"]}: Checking if discussed... ', end='')
+        if discuss_regex.search(rfc_text):
+            DISCUSS[rfc['number']] = rfc['title']
+            if VERBOSE:
+                print(f'{rfc["number"]}: Discussed')
         if VERBOSE:
             print(f'{rfc["number"]}: Balloted')
         return True
@@ -279,7 +300,7 @@ async def main() -> None:
         print('Started going through RFC:s left after filtering')
     await asyncio.gather(*[check_rfc(rfc) for rfc in table])
     print_result()
-    print(f'finished in {time.time() - start}')
+    print(f'finished in {time.time() - start:.2f} s')
 
 
 if __name__ == '__main__':
